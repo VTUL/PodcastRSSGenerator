@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:googleplay="http://www.google.com/schemas/play-podcasts/1.0"
+xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>{{podcast.title}}</title>
+    <description>{{podcast.description}}</description>
+    <itunes:image href="{{podcast.img_url}}" />
+    <language>{{podcast.language}}</language>
+    <itunes:category text="Education">
+      <itunes:category text="Creative Writing"/>
+    </itunes:category>
+    <itunes:explicit>False</itunes:explicit>
+    <itunes:type>Episodic</itunes:type>
+    <copyright>{{podcast.copyright}}</copyright>
+    <itunes:owner>{{podcast.itunes_owner}}</itunes:owner>
+    <googleplay:author>{{podcast.googleplay_author}}</googleplay:author>
+    <googleplay:image href="{{podcast.img_url}}"/>
+    <link>{{podcast.link}}</link>
+    {% for item in items %}
+      <item>
+        <title>{{item.title}}</title>
+        <description>{{item.description}}</description>
+        <pubDate>{{item.pubDate}}</pubDate>
+        <enclosure url="{{item.url}}"
+        type="{{item.file_type}}" length="{{item.length}}"/>
+        <itunes:duration>{{item.duration}}</itunes:duration>
+        <itunes:image href="{{item.img_url}}" />
+        <guid isPermaLink="{{item.guid_permaLink}}">{{item.guid}}</guid>
+      </item>
+    {% endfor %}
+  </channel>
+</rss>
