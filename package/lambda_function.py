@@ -11,6 +11,7 @@ import urllib
 import datetime
 import dateutil.parser
 import re
+from pyexiftool import exiftool
 
 # Environment variables
 region_name = os.getenv('REGION')
