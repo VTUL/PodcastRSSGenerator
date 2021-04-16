@@ -93,26 +93,6 @@ def getAudioFile(audioFileURL, cwd):
     f.write(data)
     return tmpFile
 
-    
-def getAudioFileMetadata(audioFileName):
-    _, file_extension = os.path.splitext(audioFileName)
-    metadata = {}
-    if file_extension == ".wav":
-        with contextlib.closing(wave.open(audioFileName,'r')) as f:
-            frames = f.getnframes()
-            rate = f.getframerate()
-            duration = frames / float(rate)
-            metadata['duration'] = duration
-    elif file_extension == ".mp3":  
-        audio = MP3(audioFileName)
-        if audio is not None:
-            metadata['length'] = os.path.getsize(audioFileName)
-            metadata['duration'] = int(audio.info.length)
-            metadata['file_type'] = "audio/mpeg"
-
-    os.remove(audioFileName)
-    return metadata
-
 
 def setCollectionMetadata(collection):
     metadata = {}
@@ -128,6 +108,11 @@ def setCollectionMetadata(collection):
         metadata["googleplay_author"] = collection["creator"]
     if "thumbnail_path" in collection:
         metadata["img_url"] = collection["thumbnail_path"]
+    if "explicit_content" in collection:
+        metadata["explicit_content"] = str(collection["explicit_content"]).lower()
+    if "ownerinfo" in collection:
+        metadata["owner_name"] = collection["ownerinfo"]["name"]
+        metadata["owner_email"] = collection["ownerinfo"]["email"]
     if "language" in collection:
         metadata["language"] = collection["language"]
     else:
@@ -151,17 +136,15 @@ def setArchivesMetadata(collectionArchives, cwd):
             item["pubDate"] = date_formatted
         if "thumbnail_path" in archive:
             item["img_url"] = archive["thumbnail_path"]
-        if "manifest_url" in archive:
-            audioFileName = archive['manifest_url']
-            localFilePath = getAudioFile(audioFileName, cwd)
-            audioFileMetadata = getAudioFileMetadata(localFilePath)
+        if "manifest_file_characterization" in archive:
+            fc = archive["manifest_file_characterization"]
             
             item["url"] = archive['manifest_url']
-            item["length"] = audioFileMetadata["length"]
-            item["duration"] = audioFileMetadata["duration"]
-            item["file_type"] = audioFileMetadata["file_type"]
-            item["guid_permaLink"] = ""
-            item["guid"] = ""
+            item["length"] = str(fc["size"])
+            item["duration"] = fc["duration"]
+            item["file_type"] = fc["type"]
+            item["guid_permaLink"] = "true"
+            item["guid"] = f"https://podcasts.lib.vt.edu/archive/{archive['custom_key'].replace('ark:/53696/', '')}"
 
         items.append(item)
     return items
@@ -197,6 +180,7 @@ def lambda_handler(event, context):
     cwd = os.getcwd()
     
     targetArchive = fetchArchive(event['archive_id'])
+    
     if 'parent_collection' in targetArchive:
         collection = fetchCollection(targetArchive['parent_collection'][0])
         collectionArchives = fetchAllArchivesForCollection(collection['id'])
