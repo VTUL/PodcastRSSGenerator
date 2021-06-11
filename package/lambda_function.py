@@ -2,27 +2,25 @@ import boto3
 from boto3.dynamodb.conditions import Key, Attr
 import json
 import os
-import sys
 import jinja2
-import wave
-import contextlib
-from mutagen.mp3 import MP3
 import urllib
 import datetime
 import dateutil.parser
 import re
-from pyexiftool import exiftool
 
 # Environment variables
 region_name = os.getenv('REGION')
 collection_table_name = os.getenv('COLLECTION_TABLE_NAME')
 archive_table_name = os.getenv('ARCHIVE_TABLE_NAME')
 archive_id = os.getenv('ARCHIVE_ID')
+bucket_name = os.getenv('BUCKET_NAME')
 
 try:
     dyndb = boto3.resource('dynamodb', region_name=region_name)
     archive_table = dyndb.Table(archive_table_name)
-    collection_table = dyndb.Table(collection_table_name)    
+    collection_table = dyndb.Table(collection_table_name)  
+    s3 = boto3.resource('s3')
+
 except Exception as e:
     print(f"An error occurred: {str(e)}")
     raise e
@@ -158,20 +156,17 @@ def createRSSContent(metadata):
     return template.render(podcast = metadata, items = metadata["items"])
 
 
-def writeContentToFile(rssContent, collectionKey, cwd):
+def writeContentToS3(rssContent, collectionKey, cwd):
     keyPrefix = "ark:/53696/"
-    filename = f"{collectionKey.replace(keyPrefix, '')}.rss"
-    outputDir = f"{cwd}/output"
-    if not os.path.isdir(outputDir):
-        os.mkdir(outputDir)
+    filename = f"podcasts/{collectionKey.replace(keyPrefix, '')}.rss"
 
-    outputFile = f"{outputDir}/{filename}"
-
-    f = open(outputFile, 'w')
-    f.write(rssContent)
-
-    if os.path.isfile(outputFile):
-        print(f"Output written to {outputFile}")
+    try:
+        s3_object = s3.Object(bucket_name, filename)
+        response = s3_object.put(Body=rssContent)
+        print(f"{filename} written to s3 bucket:{bucket_name}")
+    except:
+        print("Error writing to s3")
+    
     
             
 def lambda_handler(event, context):
@@ -188,7 +183,7 @@ def lambda_handler(event, context):
         metadata["items"] = setArchivesMetadata(collectionArchives, cwd)
 
         rssContent = createRSSContent(metadata)
-        writeContentToFile(rssContent, collection["custom_key"], cwd)
+        writeContentToS3(rssContent, collection["custom_key"], cwd)
 
     return {
         'statusCode': 200,
