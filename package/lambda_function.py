@@ -20,6 +20,7 @@ try:
     archive_table = dyndb.Table(archive_table_name)
     collection_table = dyndb.Table(collection_table_name)  
     s3 = boto3.resource('s3')
+    deserializer = boto3.dynamodb.types.TypeDeserializer()
 
 except Exception as e:
     print(f"An error occurred: {str(e)}")
@@ -75,23 +76,6 @@ def fetchAllArchivesForCollection(collection_id):
     return source_table_items
 
 
-def getAudioFile(audioFileURL, cwd):
-    response = urllib.request.urlopen(audioFileURL)
-    data = response.read()
-
-    tmpDir = f"{cwd}/tmp"
-    if not os.path.isdir(tmpDir):
-        os.mkdir(tmpDir)
-
-    a = urllib.parse.urlparse(audioFileURL)    
-    filename = os.path.basename(a.path)
-    tmpFile = f"{tmpDir}/{filename}"
-
-    f = open(tmpFile, 'wb')
-    f.write(data)
-    return tmpFile
-
-
 def setCollectionMetadata(collection):
     metadata = {}
     if "title" in collection:
@@ -120,7 +104,7 @@ def setCollectionMetadata(collection):
     return metadata
 
 
-def setArchivesMetadata(collectionArchives, cwd):
+def setArchivesMetadata(collectionArchives):
     items = []
     for archive in collectionArchives:
         item = {}
@@ -156,13 +140,13 @@ def createRSSContent(metadata):
     return template.render(podcast = metadata, items = metadata["items"])
 
 
-def writeContentToS3(rssContent, collectionKey, cwd):
+def writeContentToS3(rssContent, collectionKey):
     keyPrefix = "ark:/53696/"
     filename = f"podcasts/{collectionKey.replace(keyPrefix, '')}.rss"
 
     try:
         s3_object = s3.Object(bucket_name, filename)
-        response = s3_object.put(Body=rssContent)
+        s3_object.put(Body=rssContent)
         print(f"{filename} written to s3 bucket:{bucket_name}")
     except:
         print("Error writing to s3")
@@ -172,22 +156,28 @@ def writeContentToS3(rssContent, collectionKey, cwd):
 def lambda_handler(event, context):
     metadata = None
     collection = None
-    cwd = os.getcwd()
-    
-    targetArchive = fetchArchive(event['archive_id'])
-    
-    if 'parent_collection' in targetArchive:
-        collection = fetchCollection(targetArchive['parent_collection'][0])
-        collectionArchives = fetchAllArchivesForCollection(collection['id'])
-        metadata = setCollectionMetadata(collection)
-        metadata["items"] = setArchivesMetadata(collectionArchives, cwd)
-
-        rssContent = createRSSContent(metadata)
-        writeContentToS3(rssContent, collection["custom_key"], cwd)
+    try:
+        targetArchive = event["Records"][0]["dynamodb"]["NewImage"]
+        itemCategory = deserializer.deserialize(targetArchive["item_category"])
+        if itemCategory == "podcasts":
+            if 'parent_collection' in targetArchive:
+                parentCollection = deserializer.deserialize(targetArchive['parent_collection'])
+                collection = fetchCollection(parentCollection[0])
+                collectionArchives = fetchAllArchivesForCollection(collection['id'])
+                metadata = setCollectionMetadata(collection)
+                metadata["items"] = setArchivesMetadata(collectionArchives)
+        
+                rssContent = createRSSContent(metadata)
+                writeContentToS3(rssContent, collection["custom_key"])
+        else:
+            print("Not a podcast record. Skipping")
+    except Exception as e:
+        print("couldn't process New Record")
+        print(e)
 
     return {
         'statusCode': 200,
-        'body': json.dumps('Hello from Lambda!')
+        'body': json.dumps('New dynamo record processed.')
     }
 
 if __name__ == "__main__":
