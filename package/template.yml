@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Podcast RSS Generator
+Parameters: 
+    Region:
+      Type: String
+      Default: "us-east-1"
+    CollectionTable:
+      Type: String
+      Default: "CollectionTable"
+    ArchiveTable:
+      Type: String
+      Default: "ArchiveTable"
+    ArchiveStream:
+      Type: String
+      Default: "ArchiveStream"
+    BucketName:
+      Type: String
+      Default: "BucketName"
+
+Resources:
+  podcastRSSGenerator:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      MemorySize: 2048
+      Timeout: 30000
+      Events:
+        Stream:
+          Type: DynamoDB
+          Properties:
+            Stream: !Ref ArchiveStream
+            BatchSize: 1
+            StartingPosition: LATEST
+
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CollectionTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ArchiveTable
+        - S3WritePolicy:
+            BucketName: !Ref BucketName
+      Environment:
+        Variables:
+          REGION: !Ref Region
+          COLLECTION_TABLE_NAME: !Ref CollectionTable
+          ARCHIVE_TABLE_NAME: !Ref ArchiveTable
+          BUCKET_NAME: !Ref BucketName
+
+Outputs:
+  podcastRSSGenerator:
+    Description: "podcastRSSGenerator Lambda Function ARN"
+    Value: !GetAtt podcastRSSGenerator.Arn
+  podcastRSSGeneratorIamRole:
+    Description: "Implicit IAM Role created for podcastRSSGenerator function"
+    Value: !GetAtt podcastRSSGeneratorRole.Arn
