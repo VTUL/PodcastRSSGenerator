@@ -1,2 +1,3 @@
 package/.aws-sam/
 package/packaged.yaml
+lambda_update_cmd.txt
