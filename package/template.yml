@@ -26,12 +26,14 @@ Resources:
       Handler: lambda_function.lambda_handler
       Runtime: python3.8
       MemorySize: 2048
-      Timeout: 30000
+      Timeout: 900
       Events:
         Stream:
           Type: DynamoDB
           Properties:
-            Stream: !Ref ArchiveStream
+            Stream: !Sub
+              - "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${archiveTable}/stream/${stream}"
+              - { archiveTable: !Ref ArchiveTable, stream: !Ref ArchiveStream }
             BatchSize: 1
             StartingPosition: LATEST
 
@@ -40,6 +42,17 @@ Resources:
             TableName: !Ref CollectionTable
         - DynamoDBReadPolicy:
             TableName: !Ref ArchiveTable
+        - Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:ListStreams
+              - dynamodb:DescribeStream
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+            Resource: !Sub
+              - "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${archiveTable}/stream/${stream}"
+              - { archiveTable: !Ref ArchiveTable, stream: "*" }
+
         - S3WritePolicy:
             BucketName: !Ref BucketName
       Environment:
