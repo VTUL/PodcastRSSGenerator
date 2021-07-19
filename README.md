@@ -40,7 +40,7 @@ sam package \
   --s3-bucket YOUR_S3_BUCKET_NAME
 ```
 
-* Deploy the project to AWS
+* Deploy the project to AWS   
 NOTES:
   * Stack will be created. `YOUR_STACK_NAME` does not need to be an existing stack.
   * `YOUR_ARCHIVE_STREAM` should be the final part of the stream ARN. example: `2020-09-18T16:55:17.247`
