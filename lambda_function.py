@@ -142,7 +142,7 @@ def createRSSContent(metadata):
 
 def writeContentToS3(rssContent, collectionKey):
     keyPrefix = "ark:/53696/"
-    filename = f"podcasts/{collectionKey.replace(keyPrefix, '')}.rss"
+    filename = f"public/sitecontent/text/podcasts/rss/{collectionKey.replace(keyPrefix, '')}.rss"
 
     try:
         s3_object = s3.Object(bucket_name, filename)
