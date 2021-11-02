@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Podcast RSS Generator
+Parameters:
+  Region:
+    Type: String
+    Default: us-east-1
+  CollectionTable:
+    Type: String
+    Default: CollectionTable
+  ArchiveTable:
+    Type: String
+    Default: ArchiveTable
+  ArchiveStream:
+    Type: String
+    Default: ArchiveStream
+  BucketName:
+    Type: String
+    Default: BucketName
+Resources:
+  podcastRSSGenerator:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://vtdlp-lee-test/6b7d48406e793d4bb793f6e1683331a7
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      MemorySize: 2048
+      Timeout: 900
+      Events:
+        Stream:
+          Type: DynamoDB
+          Properties:
+            Stream:
+              Fn::Sub:
+              - arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${archiveTable}/stream/${stream}
+              - archiveTable:
+                  Ref: ArchiveTable
+                stream:
+                  Ref: ArchiveStream
+            BatchSize: 1
+            StartingPosition: LATEST
+      Policies:
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: CollectionTable
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: ArchiveTable
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:ListStreams
+          - dynamodb:DescribeStream
+          - dynamodb:GetRecords
+          - dynamodb:GetShardIterator
+          Resource:
+            Fn::Sub:
+            - arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${archiveTable}/stream/${stream}
+            - archiveTable:
+                Ref: ArchiveTable
+              stream: '*'
+      - S3WritePolicy:
+          BucketName:
+            Ref: BucketName
+      Environment:
+        Variables:
+          REGION:
+            Ref: Region
+          COLLECTION_TABLE_NAME:
+            Ref: CollectionTable
+          ARCHIVE_TABLE_NAME:
+            Ref: ArchiveTable
+          BUCKET_NAME:
+            Ref: BucketName
+Outputs:
+  podcastRSSGenerator:
+    Description: podcastRSSGenerator Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - podcastRSSGenerator
+      - Arn
+  podcastRSSGeneratorIamRole:
+    Description: Implicit IAM Role created for podcastRSSGenerator function
+    Value:
+      Fn::GetAtt:
+      - podcastRSSGeneratorRole
+      - Arn
